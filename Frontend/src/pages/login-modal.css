@@ -1,6 +1,0 @@
-.login-modal-bg { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 18px; background: rgba(38,27,23,.55); backdrop-filter: blur(10px); animation: modalFade .2s ease; }
-.login-modal-box { width: min(940px, 100%); max-height: calc(100vh - 36px); overflow: auto; position: relative; border-radius: 28px; background: #fff; box-shadow: 0 30px 100px rgba(0,0,0,.28); animation: modalIn .28s ease; }
-.login-modal-box .auth-page { min-height: 0; padding: 0; background: transparent; }.login-modal-box .auth-decoration { display:none; }.login-modal-box .auth-card { width:100%; box-shadow:none; border:0; border-radius:28px; }
-.login-modal-close { position:absolute; z-index:5; top:16px; right:16px; width:38px; height:38px; border:1px solid var(--border); border-radius:50%; background:#fff; color:#6e625a; font-size:1.5rem; line-height:1; }
-.login-modal-close:hover { color:var(--primary-red); transform:rotate(5deg); }
-@keyframes modalFade { from{opacity:0} to{opacity:1} } @keyframes modalIn { from{opacity:0;transform:translateY(12px) scale(.98)} to{opacity:1;transform:none} }
