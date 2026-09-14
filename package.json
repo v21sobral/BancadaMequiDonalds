@@ -1,8 +1,0 @@
-{
-  "name": "bancada-mequidonalds",
-  "private": true,
-  "scripts": {
-    "frontend": "npm --prefix Frontend run dev",
-    "backend": "npm --prefix Backend run dev"
-  }
-}
