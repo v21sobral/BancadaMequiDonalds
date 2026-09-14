@@ -1,2 +1,0 @@
-# BancadaMequiDonalds
-Ti desempregado
