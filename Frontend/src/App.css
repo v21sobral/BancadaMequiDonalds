@@ -1,0 +1,5 @@
+main { overflow: clip; }
+.page-shell { padding: 56px 0 80px; }
+.section-kicker { color: var(--primary-red); font-size: .78rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+.section-title { margin-top: 8px; font-size: clamp(2rem, 4vw, 3.3rem); line-height: 1.05; letter-spacing: -.04em; }
+.muted { color: var(--text-muted); }
