@@ -146,7 +146,7 @@ app.get('/auth/me', autenticarToken, async (req, res) => {
 
 app.get('/mensagens', async (_req, res) => {
   try {
-    const data = await supabase('mensagens?select=id,titulo,texto,data_hora,criado_em,autor_id,usuarios(id,nome)&order=data_hora.desc,id.desc');
+    const data = await supabase('mensagens?select=id,titulo,texto,data_hora,criado_em,autor_id&order=data_hora.desc,id.desc');
     res.json(data.map((m) => ({
       id: m.id, titulo: m.titulo, texto: m.texto,
       dataHora: new Date(m.data_hora).toLocaleString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
