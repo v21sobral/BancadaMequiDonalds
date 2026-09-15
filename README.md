@@ -26,8 +26,8 @@ Projeto web acadêmico com React/Vite no frontend e Node/Express + PostgreSQL (S
 Configure:
 
 ```env
-SUPABASE_URL=https://seu-projeto.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_...
+DATABASE_URL=postgresql://...
+DATABASE_SSL=true
 JWT_SECRET=uma-chave-longa-e-aleatoria
 FRONTEND_URL=http://localhost:5173,https://seu-frontend.vercel.app
 ```

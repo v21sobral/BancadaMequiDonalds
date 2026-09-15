@@ -52,7 +52,6 @@ async function supabase(path, options = {}) {
     ...options,
     headers: {
       apikey: SUPABASE_SECRET_KEY,
-      Authorization: `Bearer ${SUPABASE_SECRET_KEY}`,
       'Content-Type': 'application/json',
       Prefer: 'return=representation',
       ...(options.headers || {}),
@@ -162,17 +161,10 @@ app.post('/mensagens', autenticarToken, async (req, res) => {
     if (!titulo || !texto) return res.status(400).json({ mensagem: 'Título e texto são obrigatórios.' });
     if (titulo.length > 120) return res.status(400).json({ mensagem: 'O título deve ter no máximo 120 caracteres.' });
     if (texto.length > 5000) return res.status(400).json({ mensagem: 'O texto deve ter no máximo 5000 caracteres.' });
-    const data = await supabase('mensagens?select=id,titulo,texto,data_hora,criado_em', { method: 'POST', body: JSON.stringify({ titulo, texto, autor_id: req.usuario.id }) });
+    const data = await supabase('mensagens', { method: 'POST', body: JSON.stringify({ titulo, texto, autor_id: req.usuario.id }) });
     const item = data[0];
-    if (!item) throw new Error('O Supabase não retornou a publicação criada.');
     res.status(201).json({ id:item.id, titulo:item.titulo, texto:item.texto, dataHora:new Date(item.data_hora).toLocaleString('pt-BR', { timeZone:'America/Bahia', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }), criadoEm:item.criado_em, autorId:req.usuario.id, autorNome:req.usuario.nome });
-  } catch (error) {
-    console.error('Criar:', error.details || error);
-    if (error.details?.code === '23503') return res.status(400).json({ mensagem: 'O usuário da sessão não existe no banco. Entre novamente.' });
-    if (error.details?.code === '23505') return res.status(409).json({ mensagem: 'Já existe uma publicação com esses dados.' });
-    if (error.details?.code === '42P01' || error.details?.code === 'PGRST205') return res.status(500).json({ mensagem: 'A tabela de publicações não existe no Supabase. Execute Backend/schema.sql.' });
-    return res.status(500).json({ mensagem: 'Erro ao criar publicação. Verifique a configuração do Supabase e tente novamente.' });
-  }
+  } catch (error) { console.error('Criar:', error.details || error); res.status(500).json({ mensagem: 'Erro ao criar publicação.' }); }
 });
 
 app.put('/mensagens/:id', autenticarToken, async (req, res) => {
