@@ -213,3 +213,60 @@ app.use((error, _req, res, _next) => { console.error('Erro não tratado:', error
 
 if (require.main === module) app.listen(port, () => console.log(`API Bancada MequiDonalds na porta ${port}`));
 module.exports = app;
+
+function validarMidia({ titulo, tipo, url }) {
+  if (!titulo || titulo.trim().length < 2) return 'Informe um título.';
+  if (!['video', 'jogo'].includes(tipo)) return 'Tipo inválido (use video ou jogo).';
+  try {
+    const parsed = new URL(url);
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error();
+  } catch {
+    return 'Informe uma URL válida (http/https).';
+  }
+  return null;
+}
+
+app.get('/midias', async (_req, res) => {
+  try {
+    const data = await supabase('midias?select=id,titulo,tipo,url,criado_em,autor_id&order=criado_em.desc,id.desc');
+    res.json(data.map((m) => ({
+      id: m.id, titulo: m.titulo, tipo: m.tipo, url: m.url,
+      criadoEm: m.criado_em, autorId: m.autor_id,
+    })));
+  } catch (error) {
+    console.error('Listar mídias:', error.details || error);
+    res.status(500).json({ mensagem: 'Erro ao buscar itens de mídia.' });
+  }
+});
+
+app.post('/midias', autenticarToken, async (req, res) => {
+  try {
+    const titulo = String(req.body.titulo || '').trim();
+    const tipo = String(req.body.tipo || '').trim();
+    const url = String(req.body.url || '').trim();
+    const validation = validarMidia({ titulo, tipo, url });
+    if (validation) return res.status(400).json({ mensagem: validation });
+    const data = await supabase('midias?select=id,titulo,tipo,url,criado_em', {
+      method: 'POST',
+      body: JSON.stringify({ titulo, tipo, url, autor_id: req.usuario.id }),
+    });
+    const item = data[0];
+    res.status(201).json({ ...item, autorId: req.usuario.id, criadoEm: item.criado_em });
+  } catch (error) {
+    console.error('Criar mídia:', error.details || error);
+    res.status(500).json({ mensagem: 'Erro ao adicionar item de mídia.' });
+  }
+});
+
+app.delete('/midias/:id', autenticarToken, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id)) return res.status(400).json({ mensagem: 'Item inválido.' });
+    const data = await supabase(`midias?id=eq.${id}&autor_id=eq.${req.usuario.id}`, { method: 'DELETE' });
+    if (!data[0]) return res.status(404).json({ mensagem: 'Item não encontrado ou sem permissão.' });
+    res.json({ mensagem: 'Item removido com sucesso.' });
+  } catch (error) {
+    console.error('Excluir mídia:', error.details || error);
+    res.status(500).json({ mensagem: 'Erro ao remover item.' });
+  }
+});
