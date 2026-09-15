@@ -163,7 +163,7 @@ app.get('/auth/me', autenticarToken, async (req, res) => {
 
 app.get('/mensagens', async (_req, res) => {
   try {
-    const data = await supabase('mensagens?select=id,titulo,texto,data_hora,criado_em,autor_id&order=data_hora.desc,id.desc');
+    const data = await supabase('mensagens?select=id,titulo,texto:conteudo,data_hora,criado_em,autor_id&order=data_hora.desc,id.desc');
     res.json(data.map((m) => ({
       id: m.id, titulo: m.titulo, texto: m.texto,
       dataHora: new Date(m.data_hora).toLocaleString('pt-BR', { timeZone: 'America/Bahia', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
@@ -181,7 +181,7 @@ app.post('/mensagens', autenticarToken, async (req, res) => {
     if (!titulo || !texto) return res.status(400).json({ mensagem: 'Título e texto são obrigatórios.' });
     if (titulo.length > 120) return res.status(400).json({ mensagem: 'O título deve ter no máximo 120 caracteres.' });
     if (texto.length > 5000) return res.status(400).json({ mensagem: 'O texto deve ter no máximo 5000 caracteres.' });
-    const data = await supabase('mensagens', { method: 'POST', body: JSON.stringify({ titulo, texto, autor_id: req.usuario.id }) });
+    const data = await supabase('mensagens?select=id,titulo,texto:conteudo,data_hora,criado_em', { method: 'POST', body: JSON.stringify({ titulo, conteudo: texto, autor_id: req.usuario.id }) });
     const item = data[0];
     res.status(201).json({ id:item.id, titulo:item.titulo, texto:item.texto, dataHora:new Date(item.data_hora).toLocaleString('pt-BR', { timeZone:'America/Bahia', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }), criadoEm:item.criado_em, autorId:req.usuario.id, autorNome:req.usuario.nome });
   } catch (error) {
@@ -194,7 +194,7 @@ app.put('/mensagens/:id', autenticarToken, async (req, res) => {
   try {
     const id = Number(req.params.id); const titulo = String(req.body.titulo || '').trim(); const texto = String(req.body.texto || '').trim();
     if (!Number.isInteger(id) || !titulo || !texto) return res.status(400).json({ mensagem: 'Dados da publicação inválidos.' });
-    const data = await supabase(`mensagens?id=eq.${id}&autor_id=eq.${req.usuario.id}`, { method: 'PATCH', body: JSON.stringify({ titulo, texto, atualizado_em: new Date().toISOString() }) });
+    const data = await supabase(`mensagens?id=eq.${id}&autor_id=eq.${req.usuario.id}&select=id,titulo,texto:conteudo,data_hora,criado_em`, { method: 'PATCH', body: JSON.stringify({ titulo, conteudo: texto, atualizado_em: new Date().toISOString() }) });
     if (!data[0]) return res.status(404).json({ mensagem: 'Publicação não encontrada ou sem permissão.' });
     const item = data[0]; res.json({ ...item, autorId:req.usuario.id, autorNome:req.usuario.nome, dataHora:new Date(item.data_hora).toLocaleString('pt-BR', { timeZone:'America/Bahia', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) });
   } catch (error) { console.error('Editar:', error.details || error); res.status(500).json({ mensagem: 'Erro ao editar publicação.' }); }
