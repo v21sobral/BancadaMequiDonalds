@@ -85,6 +85,16 @@ function validarCredenciais({ nome, email, senha }) {
   return null;
 }
 
+function mensagemErroMensagens(error, operacao) {
+  const code = error.details?.code;
+  if (code === 'PGRST205' || code === '42P01') return 'A tabela mensagens não existe no Supabase. Execute Backend/schema.sql.';
+  if (code === 'PGRST204' || code === '42703') return 'A tabela mensagens não possui uma coluna esperada. Execute Backend/schema.sql.';
+  if (code === '42501') return 'A chave do Supabase não tem permissão para acessar a tabela mensagens.';
+  if (code === '23503') return 'O usuário da sessão não existe na tabela usuarios.';
+  if (code === '23502') return 'Existe uma coluna obrigatória ausente na tabela mensagens.';
+  return `Erro ao ${operacao} publicações no Supabase.`;
+}
+
 app.get('/', (_req, res) => res.json({ nome: 'Bancada MequiDonalds API', status: 'online' }));
 
 app.get('/health', async (_req, res) => {
@@ -94,10 +104,7 @@ app.get('/health', async (_req, res) => {
     res.json({ status: 'ok', banco: 'Supabase conectado', tabelas: { usuarios: 'ok', mensagens: 'ok' } });
   } catch (error) {
     console.error('Health:', error.details || error);
-    const code = error.details?.code;
-    const mensagem = code === 'PGRST205' || code === '42P01'
-      ? 'A tabela mensagens não existe no Supabase. Execute Backend/schema.sql.'
-      : 'A tabela mensagens não está acessível no Supabase.';
+    const mensagem = mensagemErroMensagens(error, 'acessar');
     res.status(503).json({ status: 'erro', banco: mensagem });
   }
 });
@@ -164,11 +171,7 @@ app.get('/mensagens', async (_req, res) => {
     })));
   } catch (error) {
     console.error('Listar:', error.details || error);
-    const code = error.details?.code;
-    const mensagem = code === 'PGRST205' || code === '42P01'
-      ? 'A tabela mensagens não existe no Supabase. Execute Backend/schema.sql.'
-      : 'Erro ao buscar publicações. Verifique a tabela mensagens no Supabase.';
-    res.status(500).json({ mensagem });
+    res.status(500).json({ mensagem: mensagemErroMensagens(error, 'buscar') });
   }
 });
 
@@ -183,11 +186,7 @@ app.post('/mensagens', autenticarToken, async (req, res) => {
     res.status(201).json({ id:item.id, titulo:item.titulo, texto:item.texto, dataHora:new Date(item.data_hora).toLocaleString('pt-BR', { timeZone:'America/Bahia', day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }), criadoEm:item.criado_em, autorId:req.usuario.id, autorNome:req.usuario.nome });
   } catch (error) {
     console.error('Criar:', error.details || error);
-    const code = error.details?.code;
-    const mensagem = code === 'PGRST205' || code === '42P01'
-      ? 'A tabela mensagens não existe no Supabase. Execute Backend/schema.sql.'
-      : 'Erro ao criar publicação. Verifique a estrutura da tabela mensagens no Supabase.';
-    res.status(500).json({ mensagem });
+    res.status(500).json({ mensagem: mensagemErroMensagens(error, 'criar') });
   }
 });
 
