@@ -5,7 +5,7 @@ import nandamcdonaldsImg from '../../assets/nandamcdonalds.png';
 import saramcdonaldsImg from '../../assets/saramcdonalds.png';
 import victormcdonaldsImg from '../../assets/victormcdonalds.png';
 
-function Header({ usuario, onLogout }) {
+function Header({ usuario, onLogout, tema, onToggleTheme }) {
   const navigate = useNavigate();
   const imagemUsuario = {
     'Victor Sobral de Moraes': victormcdonaldsImg,
@@ -29,6 +29,15 @@ function Header({ usuario, onLogout }) {
         </nav>
 
         <div className="header-actions">
+          <button
+            className="theme-toggle"
+            type="button"
+            onClick={onToggleTheme}
+            aria-label={`Ativar modo ${tema === 'light' ? 'escuro' : 'claro'}`}
+            title={`Modo ${tema === 'light' ? 'escuro' : 'claro'}`}
+          >
+            <span aria-hidden="true">{tema === 'light' ? '☾' : '☼'}</span>
+          </button>
           {usuario ? (
             <>
               <button className="profile-chip" onClick={() => navigate('/bancada')}>

@@ -14,9 +14,9 @@ function Home({ onLogin, usuario }) {
   const [showLogin, setShowLogin] = useState(false);
   const team = [
     { name: 'Fernanda Dantas', role: 'Desenvolvimento', img: nandamcdonaldsImg, github: 'https://github.com/fernanddadantasm' },
+    { name: 'Alessandra', role: 'Equipe SENAI', img: alessandrafinalImg, github: '#' },
     { name: 'Sara Melo', role: 'Desenvolvimento', img: saramcdonaldsImg, github: 'https://github.com/sahmlo' },
     { name: 'Victor Sobral', role: 'Desenvolvimento', img: victormcdonaldsImg, github: 'https://github.com/v21sobral' },
-    { name: 'Alessandra', role: 'Equipe SENAI', img: alessandrafinalImg, github: '#' },
   ];
 
   return (
@@ -34,7 +34,18 @@ function Home({ onLogin, usuario }) {
         </div>
         <div className="hero-visual">
           <div className="hero-orbit orbit-one" /><div className="hero-orbit orbit-two" />
-          <div className="hero-image-card"><img src={mcGif} alt="Identidade visual da Bancada MequiDonalds" /><span className="floating-tag">Tecnologia + equipe</span></div>
+          <div className="hero-sign" aria-label="Placa da Bancada MequiDonalds">
+            <img src={mcGif} alt="Placa da Bancada MequiDonalds" />
+          </div>
+          <div className="hero-image-card hero-team-collage">
+            <span className="collage-note">Funcionários da Mequi</span>
+            {team.map((member, index) => (
+              <figure className={`team-polaroid team-polaroid-${index + 1}`} key={member.name}>
+                <img src={member.img} alt={`Foto de ${member.name}`} />
+                <figcaption>{member.name.split(' ')[0]}</figcaption>
+              </figure>
+            ))}
+          </div>
         </div>
       </section>
 

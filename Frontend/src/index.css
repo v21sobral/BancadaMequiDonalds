@@ -3,6 +3,7 @@
   --primary-red-dark: #82140e;
   --primary-yellow: #fac000;
   --yellow-soft: #fff4c7;
+  --home-bg: var(--primary-yellow);
   --white: #ffffff;
   --bg-light: #fffaf0;
   --surface: #ffffff;
@@ -18,6 +19,19 @@
   text-rendering: optimizeLegibility;
 }
 
+html[data-theme='dark'] {
+  --bg-light: #171310;
+  --surface: #241d19;
+  --text-dark: #f6eee3;
+  --text-muted: #c1b3a5;
+  --border: rgba(255, 226, 191, 0.16);
+  --yellow-soft: #453a1f;
+  --home-bg: var(--bg-light);
+  --shadow: 0 18px 55px rgba(0, 0, 0, 0.3);
+  --shadow-hover: 0 24px 70px rgba(0, 0, 0, 0.42);
+  color-scheme: dark;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 body { min-width: 320px; min-height: 100vh; background: var(--bg-light); color: var(--text-dark); -webkit-font-smoothing: antialiased; }
@@ -28,6 +42,36 @@ a { color: inherit; }
 ::-webkit-scrollbar { width: 10px; }
 ::-webkit-scrollbar-track { background: #fff4dc; }
 ::-webkit-scrollbar-thumb { background: var(--primary-red); border-radius: 99px; }
+
+html[data-theme='dark'] ::-webkit-scrollbar-track { background: #241c17; }
+html[data-theme='dark'] .site-header { background: rgba(36, 29, 25, .92); }
+html[data-theme='dark'] .nav-link:hover { background: #35291f; }
+html[data-theme='dark'] .nav-link.active { background: #40331f; }
+html[data-theme='dark'] .profile-chip { background: #35291f; }
+html[data-theme='dark'] .hero-kicker { background: #40351d; }
+html[data-theme='dark'] .hero-image-card { background: linear-gradient(145deg, #3a301e, #241d19); }
+html[data-theme='dark'] .highlight-card { background: linear-gradient(150deg, #2d251f 50%, #3b321d); }
+html[data-theme='dark'] .floating-tag,
+html[data-theme='dark'] .btn-secondary,
+html[data-theme='dark'] .team-card,
+html[data-theme='dark'] .about-card,
+html[data-theme='dark'] .about-values article,
+html[data-theme='dark'] .updates-section,
+html[data-theme='dark'] .feature-grid article,
+html[data-theme='dark'] .blog-editor,
+html[data-theme='dark'] .login-modal-box,
+html[data-theme='dark'] .login-modal-close,
+html[data-theme='dark'] .auth-card { background: var(--surface); color: var(--text-dark); }
+html[data-theme='dark'] .auth-intro { background: linear-gradient(145deg, #40351f, #241d19 70%); }
+html[data-theme='dark'] .auth-form label { color: var(--text-muted); }
+html[data-theme='dark'] .auth-form input { background: #171310; border-color: var(--border); color: var(--text-dark); }
+html[data-theme='dark'] .blog-toolbar input,
+html[data-theme='dark'] .editor-title,
+html[data-theme='dark'] .blog-editor textarea { background: #171310; border-color: var(--border); color: var(--text-dark); }
+html[data-theme='dark'] .editor-close { background: var(--surface); color: var(--text-muted); }
+html[data-theme='dark'] .auth-error { background: #3d201d; border-color: #7f3931; color: #ffc0b6; }
+html[data-theme='dark'] .blog-alert { background: #3d201d; border-color: #7f3931; color: #ffc0b6; }
+html[data-theme='dark'] .hero-image-card::after { border-color: rgba(255, 226, 191, .2); }
 
 .container { width: min(1180px, calc(100% - 32px)); margin-inline: auto; }
 main { min-height: calc(100vh - 150px); }

@@ -13,6 +13,11 @@ import React, { useEffect, useState } from 'react';
 import { api } from './services/api';
 
 function App() {
+  const [tema, setTema] = useState(() => {
+    const temaSalvo = localStorage.getItem('tema');
+    if (temaSalvo === 'dark' || temaSalvo === 'light') return temaSalvo;
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  });
   const [token, setToken] = useState(() => localStorage.getItem('token') || '');
   const [usuario, setUsuario] = useState(() => {
     try {
@@ -39,6 +44,18 @@ function App() {
     localStorage.removeItem('usuario');
   };
 
+  const alternarTema = () => {
+    setTema((temaAtual) => {
+      const novoTema = temaAtual === 'light' ? 'dark' : 'light';
+      localStorage.setItem('tema', novoTema);
+      return novoTema;
+    });
+  };
+
+  useEffect(() => {
+    document.documentElement.dataset.theme = tema;
+  }, [tema]);
+
   useEffect(() => {
     if (!token) {
       setRestaurandoSessao(false);
@@ -60,7 +77,7 @@ function App() {
 
   return (
     <Router>
-      <Header usuario={usuario} onLogout={handleLogout} />
+      <Header usuario={usuario} onLogout={handleLogout} tema={tema} onToggleTheme={alternarTema} />
       <main>
         <Routes>
           <Route path="/" element={<Home onLogin={handleLogin} usuario={usuario} />} />
