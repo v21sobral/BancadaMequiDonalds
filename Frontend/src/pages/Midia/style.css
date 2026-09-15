@@ -1,0 +1,23 @@
+.midia-page { background: var(--bg-light); }
+.midia-hero { display:flex; justify-content:space-between; align-items:end; gap:30px; padding-bottom:32px; border-bottom:1px solid var(--border); }
+.midia-hero p { max-width:600px; margin-top:12px; color:var(--text-muted); line-height:1.7; }
+.midia-new { border:0; background:var(--primary-red); color:#fff; padding:14px 19px; border-radius:13px; font-weight:900; white-space:nowrap; }
+.midia-alert { margin-top:18px; padding:12px 15px; background:#fff0ed; color:#9e261b; border:1px solid #efc8c2; border-radius:12px; }
+.midia-form { display:flex; flex-wrap:wrap; gap:10px; margin-top:22px; padding:20px; background:#fff; border:1px solid var(--border); border-radius:18px; }
+.midia-form input, .midia-form select { flex:1; min-width:160px; border:1px solid #e5dbce; border-radius:10px; padding:11px 13px; }
+.midia-form button { border:0; background:var(--primary-red); color:#fff; border-radius:10px; padding:11px 18px; font-weight:800; }
+.midia-player { margin-top:26px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#000; }
+.midia-player-head { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#fff; color:var(--text-dark); }
+.midia-player-head button { border:0; background:var(--yellow-soft); border-radius:8px; padding:6px 12px; font-weight:800; }
+.midia-player iframe { width:100%; aspect-ratio:16/9; border:0; display:block; }
+.midia-player-fallback { padding:40px; text-align:center; color:#fff; }
+.midia-player-fallback a { color:var(--primary-yellow); font-weight:800; }
+.midia-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:26px; }
+.midia-card { position:relative; border:1px solid var(--border); border-radius:16px; background:#fff; overflow:hidden; }
+.midia-card-main { width:100%; text-align:left; padding:20px 16px 28px; border:0; background:transparent; display:flex; flex-direction:column; gap:8px; }
+.midia-card strong { font-size:1.02rem; }
+.midia-tag { align-self:flex-start; font-size:.7rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em; padding:4px 9px; border-radius:999px; background:var(--yellow-soft); color:#795700; }
+.midia-card.jogo .midia-tag { background:#e6f0ff; color:#1d4ed8; }
+.midia-delete { position:absolute; right:10px; bottom:10px; border:0; background:#fff0ed; color:#a72b20; border-radius:9px; padding:6px 10px; font-size:.72rem; font-weight:800; }
+.midia-empty { grid-column:1/-1; min-height:200px; display:grid; place-items:center; gap:8px; color:var(--text-muted); text-align:center; border:1px dashed #dfd3c4; border-radius:20px; }
+.midia-empty strong { color:var(--text-dark); }

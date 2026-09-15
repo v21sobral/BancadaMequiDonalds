@@ -25,6 +25,7 @@ function Header({ usuario, onLogout, tema, onToggleTheme }) {
         <nav className="nav-menu" aria-label="Navegação principal">
           <NavLink to="/" end className="nav-link">Home</NavLink>
           {usuario && <NavLink to="/bancada" className="nav-link">Bancada</NavLink>}
+          {usuario && <NavLink to="/midia" className="nav-link">Jogos &amp; Vídeos</NavLink>}
           <NavLink to="/sobre-nos" className="nav-link">Sobre nós</NavLink>
         </nav>
 

@@ -21,6 +21,8 @@ async function request(path, options = {}) {
   return data;
 }
 
+
+
 export const apiUrl = API_URL;
 export const api = {
   login: (email, senha) => request('/auth/login', {
@@ -46,6 +48,16 @@ export const api = {
     body: JSON.stringify(payload),
   }),
   apagarMensagem: (token, id) => request(`/mensagens/${id}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${token}` },
+  }),
+  listarMidias: () => request('/midias'),
+  criarMidia: (token, payload) => request('/midias', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${token}` },
+    body: JSON.stringify(payload),
+  }),
+  apagarMidia: (token, id) => request(`/midias/${id}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   }),

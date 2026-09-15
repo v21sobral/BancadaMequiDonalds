@@ -8,9 +8,11 @@ import Code from './pages/Code';
 import Login from './pages/Login';
 import Cadastro from './pages/Cadastro';
 import Blog from './pages/Blog';
+import Midia from './pages/Midia';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import React, { useEffect, useState } from 'react';
 import { api } from './services/api';
+
 
 function App() {
   const [tema, setTema] = useState(() => {
@@ -86,6 +88,7 @@ function App() {
           <Route path="/cadastro" element={<Cadastro onLogin={handleLogin} />} />
           <Route element={<ProtectedRoute usuario={usuario} />}>
             <Route path="/bancada" element={<Blog token={token} usuario={usuario} />} />
+            <Route path="/midia" element={<Midia token={token} usuario={usuario} />} />
             <Route path="/code" element={<Code token={token} usuario={usuario} />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
