@@ -8,10 +8,14 @@
 .midia-form button { border:0; background:var(--primary-red); color:#fff; border-radius:10px; padding:11px 18px; font-weight:800; }
 .midia-player { margin-top:26px; border:1px solid var(--border); border-radius:18px; overflow:hidden; background:#000; }
 .midia-player-head { display:flex; justify-content:space-between; align-items:center; padding:10px 16px; background:#fff; color:var(--text-dark); }
+.midia-player-head-actions { display:flex; align-items:center; gap:10px; }
+.midia-player-head-actions a { font-weight:800; font-size:.85rem; color:var(--primary-red); text-decoration:none; }
+.midia-player-head-actions a:hover { text-decoration:underline; }
 .midia-player-head button { border:0; background:var(--yellow-soft); border-radius:8px; padding:6px 12px; font-weight:800; }
 .midia-player iframe { width:100%; aspect-ratio:16/9; border:0; display:block; }
 .midia-player-fallback { padding:40px; text-align:center; color:#fff; }
 .midia-player-fallback a { color:var(--primary-yellow); font-weight:800; }
+.midia-player-hint { padding:10px 16px; background:#fff; color:var(--text-muted); font-size:.78rem; border-top:1px solid var(--border); }
 .midia-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:26px; }
 .midia-card { position:relative; border:1px solid var(--border); border-radius:16px; background:#fff; overflow:hidden; }
 .midia-card-main { width:100%; text-align:left; padding:20px 16px 28px; border:0; background:transparent; display:flex; flex-direction:column; gap:8px; }
