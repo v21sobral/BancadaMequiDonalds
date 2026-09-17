@@ -92,10 +92,10 @@ function Midia({ token, usuario }) {
       {!erroEmbed ? (
         <iframe
           src={src}
+          referrerPolicy="no-referrer"
           title={ativo.titulo}
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
           allowFullScreen
-          onError={() => setErroEmbed(true)}
         />
       ) : (
         <div className="midia-player-fallback">
