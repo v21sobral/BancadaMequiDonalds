@@ -436,7 +436,63 @@ function createProxy({ secret, allowedOrigins = [], style } = {}) {
     }
   };
 
-  return { router, pathFor, fallback };
+  const attach = (server) => {
+    let WebSocket;
+    let WebSocketServer;
+    try {
+      ({ WebSocket, WebSocketServer } = require('ws'));
+    } catch {
+      return false;
+    }
+
+    const wss = new WebSocketServer({ noServer: true });
+    server.on('upgrade', (req, socket, head) => {
+      let target;
+      try {
+        const requestUrl = new URL(req.url, 'http://proxy.local');
+        if (requestUrl.pathname.startsWith('/p/')) {
+          target = readToken(secret, requestUrl.pathname.slice(3));
+        } else {
+          const base = readCroxyOrigin(secret, requestUrl.searchParams.get(CP_ORIGIN), requestUrl.searchParams.get(CP_SIG));
+          if (base) {
+            target = new URL(base.origin);
+            target.pathname = requestUrl.pathname;
+            requestUrl.searchParams.delete(CP_ORIGIN);
+            requestUrl.searchParams.delete(CP_SIG);
+            target.search = requestUrl.searchParams.toString();
+          }
+        }
+        if (!target) return;
+        assertAllowedTarget(target);
+      } catch {
+        socket.destroy();
+        return;
+      }
+
+      const upstream = new WebSocket(target.href.replace(/^http/i, 'ws'), {
+        headers: { host: target.host },
+      });
+      wss.handleUpgrade(req, socket, head, (client) => {
+        const closeBoth = () => {
+          if (client.readyState < WebSocket.CLOSING) client.close();
+          if (upstream.readyState < WebSocket.CLOSING) upstream.close();
+        };
+        client.on('message', (data, isBinary) => {
+          if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+        });
+        upstream.on('message', (data, isBinary) => {
+          if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
+        });
+        client.on('close', closeBoth);
+        upstream.on('close', closeBoth);
+        client.on('error', closeBoth);
+        upstream.on('error', closeBoth);
+      });
+    });
+    return true;
+  };
+
+  return { router, pathFor, fallback, attach };
 }
 
 module.exports = { createProxy };

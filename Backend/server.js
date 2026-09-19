@@ -217,7 +217,10 @@ app.delete('/mensagens/:id', autenticarToken, async (req, res) => {
 
 app.use((error, _req, res, _next) => { console.error('Erro não tratado:', error); res.status(500).json({ mensagem: 'Erro interno do servidor.' }); });
 
-if (require.main === module) app.listen(port, () => console.log(`API Bancada MequiDonalds na porta ${port}`));
+if (require.main === module) {
+  const server = app.listen(port, () => console.log(`API na porta ${port}`));
+  proxy.attach(server);
+}
 module.exports = app;
 
 function validarMidia({ titulo, tipo, url }) {
