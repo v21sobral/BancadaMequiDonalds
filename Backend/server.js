@@ -32,6 +32,7 @@ app.use(express.json({ limit: '100kb' }));
 
 const proxy = createProxy({ secret: PROXY_SECRET, allowedOrigins });
 app.use(proxy.router);
+app.use(proxy.fallback);
 
 if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) console.warn('Supabase não configurado: defina SUPABASE_URL e SUPABASE_SECRET_KEY.');
 if (!JWT_SECRET) console.warn('JWT_SECRET não configurado.');
@@ -276,4 +277,3 @@ app.delete('/midias/:id', autenticarToken, async (req, res) => {
   }
 });
 
-app.use(proxy.fallback);

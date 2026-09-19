@@ -1,15 +1,21 @@
 /**
- * Proxy de URLs codificadas (estilo CroxyProxy) para a Bancada MequiDonalds.
+ * Proxy de URLs codificadas para a Bancada MequiDonalds (projeto de estudo).
  *
- * Como funciona:
- *  - Cada URL vira um token:  <assinatura>.<url em base64url>
- *  - A assinatura é um HMAC da ORIGEM (https://site.com), então só origens
- *    geradas pelo próprio servidor podem ser acessadas (não é um proxy aberto).
- *  - GET /p/<token> busca a página, remove cabeçalhos que impedem iframe
- *    (X-Frame-Options / CSP), reescreve os links do HTML/CSS para passarem
- *    pelo proxy e injeta um script que ajusta fetch/XHR/window.open.
- *  - Proteção contra SSRF: bloqueia IPs privados/loopback na hora da conexão
- *    (inclusive contra DNS rebinding), só permite portas 80/443 e http/https.
+ * Dois formatos de link, escolhidos por PROXY_STYLE (padrão: croxy):
+ *
+ *  croxy  ->  /caminho/original?query&__cpo=<origem em base64url>&__cps=<assinatura>
+ *             (o caminho do site é mantido; só a ORIGEM vai codificada no parâmetro)
+ *  token  ->  /p/<assinatura>.<url completa em base64url>
+ *
+ * Em ambos, a assinatura é um HMAC da ORIGEM (https://site.com): só origens geradas
+ * pelo próprio servidor são aceitas, então ele não vira um proxy aberto.
+ *
+ * O servidor busca a página, remove cabeçalhos que impedem iframe (X-Frame-Options / CSP),
+ * reescreve links de HTML/CSS e injeta um script que ajusta fetch/XHR/window.open.
+ * Recursos que escaparem da reescrita são resolvidos pelo Referer (proxy.fallback).
+ *
+ * Proteção contra SSRF: bloqueia IPs privados/loopback na hora da conexão (inclusive
+ * contra DNS rebinding), só permite portas 80/443 e http/https.
  */
 const crypto = require('crypto');
 const dns = require('dns');
@@ -21,6 +27,8 @@ const { Agent, fetch: undiciFetch } = require('undici');
 const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 const ALLOWED_PORTS = new Set(['', '80', '443']);
 const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+const CP_ORIGIN = '__cpo';
+const CP_SIG = '__cps';
 
 /* ---------- Bloqueio de endereços internos (SSRF) ---------- */
 
@@ -68,12 +76,19 @@ function assertAllowedTarget(url) {
   if (net.isIP(host) && isBlockedIp(host)) throw new Error('Destino não permitido.');
 }
 
-/* ---------- Tokens codificados e assinados ---------- */
+/* ---------- Assinatura, tokens e links ---------- */
 
 function sigFor(secret, origin) {
   return crypto.createHmac('sha256', secret).update(origin).digest('base64url').slice(0, 22);
 }
 
+function validSig(secret, origin, sig) {
+  const a = Buffer.from(String(sig || ''));
+  const b = Buffer.from(sigFor(secret, origin));
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
+
+// formato "token": /p/<assinatura>.<url>
 function makeToken(secret, href) {
   const url = new URL(href);
   url.hash = '';
@@ -84,16 +99,36 @@ function readToken(secret, token) {
   const dot = token.indexOf('.');
   if (dot < 1) return null;
   try {
-    const sig = token.slice(0, dot);
     const url = new URL(Buffer.from(token.slice(dot + 1), 'base64url').toString('utf8'));
     if (!/^https?:$/.test(url.protocol)) return null;
-    const a = Buffer.from(sig);
-    const b = Buffer.from(sigFor(secret, url.origin));
-    if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
-    return url;
+    return validSig(secret, url.origin, token.slice(0, dot)) ? url : null;
   } catch {
     return null;
   }
+}
+
+// formato "croxy": caminho original + ?__cpo=<origem>&__cps=<assinatura>
+function croxyParams(secret, origin) {
+  return `${CP_ORIGIN}=${Buffer.from(origin).toString('base64url')}&${CP_SIG}=${sigFor(secret, origin)}`;
+}
+
+function readCroxyOrigin(secret, cpo, cps) {
+  try {
+    const origin = Buffer.from(String(cpo), 'base64url').toString('utf8');
+    const url = new URL(origin);
+    if (!/^https?:$/.test(url.protocol) || url.origin !== origin) return null;
+    return validSig(secret, url.origin, cps) ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+// Gera o link pelo proxy para uma URL absoluta, no formato escolhido
+function makeLink(secret, style, href) {
+  const url = new URL(href);
+  if (style !== 'croxy') return `/p/${makeToken(secret, url.href)}`;
+  const path = url.pathname.replace(/^\/{2,}/, '/'); // "//x" viraria um link para outro host
+  return `${path}${url.search}${url.search ? '&' : '?'}${croxyParams(secret, url.origin)}`;
 }
 
 // Vídeos do YouTube usam a URL de embed
@@ -117,15 +152,14 @@ function embedUrlFor(tipo, url) {
 
 /* ---------- Reescrita de HTML / CSS ---------- */
 
-function urlRewriter(secret, base) {
+function urlRewriter(ctx, base) {
   return (raw) => {
     const value = String(raw).replace(/&amp;/g, '&').trim();
     if (!value || /^(#|data:|blob:|javascript:|mailto:|tel:|about:)/i.test(value)) return raw;
     try {
       const abs = new URL(value, base);
       if (!/^https?:$/.test(abs.protocol)) return raw;
-      const hash = abs.hash;
-      return `/p/${makeToken(secret, abs.href)}${hash}`;
+      return `${makeLink(ctx.secret, ctx.style, abs.href)}${abs.hash}`;
     } catch {
       return raw;
     }
@@ -138,17 +172,19 @@ function rewriteCss(css, rewrite) {
     .replace(/@import\s+(['"])(.*?)\1/gi, (_, q, u) => `@import ${q}${rewrite(u)}${q}`);
 }
 
-function clientScript(pageUrl, sig) {
+function clientScript(pageUrl, ctx) {
   const safe = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
+  const origin = pageUrl.origin;
   return `<script>(function(){
-var ORIGIN=${safe(pageUrl.origin)},BASE=${safe(pageUrl.href)},SIG=${safe(sig)};
+var ORIGIN=${safe(origin)},BASE=${safe(pageUrl.href)},SIG=${safe(sigFor(ctx.secret, origin))},PARAMS=${safe(croxyParams(ctx.secret, origin))},CROXY=${ctx.style === 'croxy'};
 function enc(s){return btoa(s).replace(/\\+/g,'-').replace(/\\//g,'_').replace(/=+$/,'');}
 function px(u){
   try{
     if(u instanceof URL)u=u.href;
-    if(typeof u!=='string'||/^(data:|blob:|javascript:|#|about:|\\/p\\/)/i.test(u.trim()))return u;
+    if(typeof u!=='string'||/^(data:|blob:|javascript:|#|about:|\\/p\\/)/i.test(u.trim())||u.indexOf('__cpo=')>-1)return u;
     var a=new URL(u,BASE);
     if(a.origin!==ORIGIN)return u;
+    if(CROXY)return a.pathname.replace(/^\\/{2,}/,'/')+a.search+(a.search?'&':'?')+PARAMS+a.hash;
     a.hash='';
     return '/p/'+SIG+'.'+enc(a.href);
   }catch(e){return u;}
@@ -172,13 +208,13 @@ Element.prototype.setAttribute=function(n,v){
 })();</script>`;
 }
 
-function rewriteHtml(html, pageUrl, secret) {
+function rewriteHtml(html, pageUrl, ctx) {
   let base = pageUrl;
   const baseTag = /<base\s[^>]*href\s*=\s*(["'])(.*?)\1/i.exec(html);
   if (baseTag) {
     try { base = new URL(baseTag[2], pageUrl); } catch { /* mantém pageUrl */ }
   }
-  const rewrite = urlRewriter(secret, base);
+  const rewrite = urlRewriter(ctx, base);
 
   // Atributos só são reescritos no HTML, nunca dentro do código de <script>
   // (senão strings de JS como '<a href="' + url + '">' seriam corrompidas).
@@ -211,7 +247,7 @@ function rewriteHtml(html, pageUrl, secret) {
       .replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => `<style${attrs}>${rewriteCss(css, rewrite)}</style>`),
   ).replace(/\uE000(\d+)\uE000/g, (_, i) => scripts[Number(i)]);
 
-  const script = clientScript(pageUrl, sigFor(secret, pageUrl.origin));
+  const script = clientScript(pageUrl, ctx);
   if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => m + script);
   else if (/<html[^>]*>/i.test(out)) out = out.replace(/<html[^>]*>/i, (m) => m + script);
   else out = script + out;
@@ -240,18 +276,18 @@ function limiter(req, res, next) {
   return next();
 }
 
-/* ---------- Rota /p/:token ---------- */
+/* ---------- Proxy ---------- */
 
-function createProxy({ secret, allowedOrigins = [] }) {
+function createProxy({ secret, allowedOrigins = [], style } = {}) {
+  const mode = style === 'token' ? 'token' : 'croxy';
+  const ctx = { secret, style: mode };
   const router = Router();
   const frameAncestors = `'self' ${allowedOrigins.length ? allowedOrigins.join(' ') : '*'}`;
+  const link = (href) => makeLink(secret, mode, href);
+  const text = (res, status, msg) => res.status(status).type('text/plain').send(msg);
 
-  router.get('/p/:token', limiter, async (req, res) => {
-    if (!secret) return res.status(503).type('text/plain').send('Proxy não configurado no servidor.');
-
-    const target = readToken(secret, req.params.token);
-    if (!target) return res.status(400).type('text/plain').send('Link inválido ou adulterado.');
-
+  // Busca o conteúdo de `target` e devolve para o navegador
+  async function serve(req, res, target) {
     try {
       assertAllowedTarget(target);
 
@@ -274,10 +310,10 @@ function createProxy({ secret, allowedOrigins = [] }) {
 
       if (REDIRECTS.has(upstream.status)) {
         const location = upstream.headers.get('location');
-        if (!location) return res.status(502).type('text/plain').send('Redirecionamento inválido.');
+        if (!location) return text(res, 502, 'Redirecionamento inválido.');
         const next = new URL(location, target);
-        if (!/^https?:$/.test(next.protocol)) return res.status(502).type('text/plain').send('Redirecionamento inválido.');
-        return res.redirect(302, `/p/${makeToken(secret, next.href)}`);
+        if (!/^https?:$/.test(next.protocol)) return text(res, 502, 'Redirecionamento inválido.');
+        return res.redirect(302, link(next.href));
       }
 
       const type = (upstream.headers.get('content-type') || '').toLowerCase();
@@ -289,13 +325,13 @@ function createProxy({ secret, allowedOrigins = [] }) {
         let html;
         try { html = new TextDecoder(charset.trim()).decode(buffer); } catch { html = buffer.toString('utf8'); }
         res.setHeader('Cache-Control', 'no-store');
-        return res.type('text/html; charset=utf-8').send(rewriteHtml(html, target, secret));
+        return res.type('text/html; charset=utf-8').send(rewriteHtml(html, target, ctx));
       }
 
       if (type.includes('text/css')) {
         const css = (await readLimited(upstream)).toString('utf8');
         res.setHeader('Cache-Control', 'private, max-age=600');
-        return res.type('text/css; charset=utf-8').send(rewriteCss(css, urlRewriter(secret, target)));
+        return res.type('text/css; charset=utf-8').send(rewriteCss(css, urlRewriter(ctx, target)));
       }
 
       // Demais arquivos (JS, imagens, vídeo, áudio, wasm...) passam direto
@@ -317,32 +353,84 @@ function createProxy({ secret, allowedOrigins = [] }) {
     } catch (error) {
       console.error('Proxy:', error.message);
       if (res.headersSent) return res.destroy();
-      const status = error.status === 413 ? 413 : 502;
-      return res.status(status).type('text/plain').send('Não foi possível carregar este conteúdo pelo proxy.');
+      return text(res, error.status === 413 ? 413 : 502, 'Não foi possível carregar este conteúdo pelo proxy.');
     }
+  }
+
+  // Formato croxy: qualquer caminho com ?__cpo=<origem>&__cps=<assinatura>
+  router.use((req, res, next) => {
+    if (req.method !== 'GET' || typeof req.query[CP_ORIGIN] !== 'string') return next();
+    return limiter(req, res, () => {
+      if (!secret) return text(res, 503, 'Proxy não configurado no servidor.');
+      const base = readCroxyOrigin(secret, req.query[CP_ORIGIN], req.query[CP_SIG]);
+      if (!base) return text(res, 400, 'Link inválido ou adulterado.');
+
+      // Remove os parâmetros do proxy mantendo o resto da query exatamente como veio
+      const qi = req.originalUrl.indexOf('?');
+      const rest = (qi >= 0 ? req.originalUrl.slice(qi + 1) : '').split('&')
+        .filter((p) => p && !p.startsWith(`${CP_ORIGIN}=`) && !p.startsWith(`${CP_SIG}=`)).join('&');
+
+      const target = new URL(base.origin);
+      target.pathname = req.path;
+      target.search = rest ? `?${rest}` : '';
+      if (target.origin !== base.origin) return text(res, 400, 'Link inválido.');
+      return serve(req, res, target);
+    });
   });
 
-  // Caminho codificado (/p/<token>) para salvar junto de cada mídia
+  // Formato token: /p/<token>
+  router.get('/p/:token', limiter, (req, res) => {
+    if (!secret) return text(res, 503, 'Proxy não configurado no servidor.');
+    const target = readToken(secret, req.params.token);
+    if (!target) return text(res, 400, 'Link inválido ou adulterado.');
+    return serve(req, res, target);
+  });
+
+  // Link salvo junto de cada mídia
   const pathFor = (tipo, url) => {
     if (!secret) return null;
-    try { return `/p/${makeToken(secret, embedUrlFor(tipo, url))}`; } catch { return null; }
+    try { return link(embedUrlFor(tipo, url)); } catch { return null; }
   };
 
-  // Rede de segurança: se algum recurso escapar da reescrita e for pedido direto ao servidor
-  // (ex.: /assets/scripts/game.js), usa o Referer para descobrir de qual site ele veio.
+  // Descobre a página de origem (e portanto o site) a partir do cabeçalho Referer
+  const pageFromReferer = (referer) => {
+    try {
+      const ref = new URL(referer);
+      const t = /^\/p\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/.exec(ref.pathname);
+      if (t) return readToken(secret, t[1]);
+      const cpo = ref.searchParams.get(CP_ORIGIN);
+      if (!cpo) return null;
+      const origin = readCroxyOrigin(secret, cpo, ref.searchParams.get(CP_SIG));
+      if (!origin) return null;
+      const page = new URL(origin.origin);
+      page.pathname = ref.pathname;
+      return page;
+    } catch {
+      return null;
+    }
+  };
+
+  // Rede de segurança: recurso que escapou da reescrita e chegou sem parâmetros
+  // (ex.: /assets/scripts/game.js). Deve ser registrada DEPOIS de todas as outras rotas.
   const fallback = (req, res, next) => {
     if (req.method !== 'GET' || !secret) return next();
-    const match = /\/p\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/.exec(req.get('referer') || '');
-    if (!match) return next();
-    const page = readToken(secret, match[1]);
+    const page = pageFromReferer(req.get('referer') || '');
     if (!page) return next();
     try {
-      const relativeToPage = req.originalUrl.startsWith('/p/');
-      const raw = relativeToPage ? req.originalUrl.slice(3) : req.originalUrl;
-      const target = new URL(raw, relativeToPage ? page.href : page.origin);
+      let target;
+      if (req.path.startsWith('/p/')) {
+        target = new URL(req.originalUrl.slice(3), page.href); // relativo à página (modo token)
+      } else {
+        const qi = req.originalUrl.indexOf('?');
+        target = new URL(page.origin);
+        target.pathname = req.path;
+        target.search = qi >= 0 ? req.originalUrl.slice(qi) : '';
+      }
+      // Nunca sair do site da página de origem (ex.: "//outro.com/x" viraria outro host)
+      if (target.origin !== page.origin) return next();
       res.setHeader('Vary', 'Referer');
       res.setHeader('Cache-Control', 'no-store');
-      return res.redirect(302, `/p/${makeToken(secret, target.href)}`);
+      return res.redirect(302, link(target.href));
     } catch {
       return next();
     }
