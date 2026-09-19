@@ -184,8 +184,10 @@ function rewriteHtml(html, pageUrl, secret) {
   // (senão strings de JS como '<a href="' + url + '">' seriam corrompidas).
   const rewriteMarkup = (markup) => markup
     .replace(/\s(?:integrity|nonce)\s*=\s*(["']).*?\1/gi, '')
-    .replace(/\b(href|src|action|poster|formaction|data-src)\s*=\s*(["'])(.*?)\2/gi,
-      (_, attr, q, val) => `${attr}=${q}${rewrite(val)}${q}`)
+    .replace(/\b(href|src|action|poster|formaction|data-src)\s*=\s*(?:(["'])(.*?)\2|([^\s"'>]+))/gi,
+      (_, attr, q, quoted, bare) => (q
+        ? `${attr}=${q}${rewrite(quoted)}${q}`
+        : `${attr}="${rewrite(bare)}"`))
     .replace(/\bsrcset\s*=\s*(["'])(.*?)\1/gi, (_, q, val) => {
       const parts = val.split(',').map((part) => {
         const [u, ...rest] = part.trim().split(/\s+/);
@@ -256,7 +258,7 @@ function createProxy({ secret, allowedOrigins = [] }) {
       // Permite exibir o conteúdo dentro do iframe do frontend
       res.removeHeader('X-Frame-Options');
       res.setHeader('Content-Security-Policy', `frame-ancestors ${frameAncestors}`);
-      res.setHeader('Referrer-Policy', 'no-referrer');
+      res.setHeader('Referrer-Policy', 'same-origin');
 
       const headers = {
         'user-agent': req.get('user-agent') || 'Mozilla/5.0',
@@ -326,7 +328,27 @@ function createProxy({ secret, allowedOrigins = [] }) {
     try { return `/p/${makeToken(secret, embedUrlFor(tipo, url))}`; } catch { return null; }
   };
 
-  return { router, pathFor };
+  // Rede de segurança: se algum recurso escapar da reescrita e for pedido direto ao servidor
+  // (ex.: /assets/scripts/game.js), usa o Referer para descobrir de qual site ele veio.
+  const fallback = (req, res, next) => {
+    if (req.method !== 'GET' || !secret) return next();
+    const match = /\/p\/([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/.exec(req.get('referer') || '');
+    if (!match) return next();
+    const page = readToken(secret, match[1]);
+    if (!page) return next();
+    try {
+      const relativeToPage = req.originalUrl.startsWith('/p/');
+      const raw = relativeToPage ? req.originalUrl.slice(3) : req.originalUrl;
+      const target = new URL(raw, relativeToPage ? page.href : page.origin);
+      res.setHeader('Vary', 'Referer');
+      res.setHeader('Cache-Control', 'no-store');
+      return res.redirect(302, `/p/${makeToken(secret, target.href)}`);
+    } catch {
+      return next();
+    }
+  };
+
+  return { router, pathFor, fallback };
 }
 
 module.exports = { createProxy };

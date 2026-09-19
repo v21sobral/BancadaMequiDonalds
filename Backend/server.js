@@ -275,3 +275,5 @@ app.delete('/midias/:id', autenticarToken, async (req, res) => {
     res.status(500).json({ mensagem: 'Erro ao remover item.' });
   }
 });
+
+app.use(proxy.fallback);
