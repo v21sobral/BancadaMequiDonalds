@@ -2,12 +2,14 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { createProxy } = require('./proxy');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const SUPABASE_URL = (process.env.SUPABASE_URL || '').replace(/\/$/, '');
 const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 const JWT_SECRET = process.env.JWT_SECRET || '';
+const PROXY_SECRET = process.env.PROXY_SECRET || JWT_SECRET;
 
 const allowedOrigins = (process.env.FRONTEND_URL || '')
   .split(',').map((item) => item.trim()).filter(Boolean);
@@ -27,6 +29,9 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '100kb' }));
+
+const proxy = createProxy({ secret: PROXY_SECRET, allowedOrigins });
+app.use(proxy.router);
 
 if (!SUPABASE_URL || !SUPABASE_SECRET_KEY) console.warn('Supabase não configurado: defina SUPABASE_URL e SUPABASE_SECRET_KEY.');
 if (!JWT_SECRET) console.warn('JWT_SECRET não configurado.');
@@ -231,7 +236,7 @@ app.get('/midias', async (_req, res) => {
     const data = await supabase('midias?select=id,titulo,tipo,url,criado_em,autor_id&order=criado_em.desc,id.desc');
     res.json(data.map((m) => ({
       id: m.id, titulo: m.titulo, tipo: m.tipo, url: m.url,
-      criadoEm: m.criado_em, autorId: m.autor_id,
+      criadoEm: m.criado_em, autorId: m.autor_id, proxy: proxy.pathFor(m.tipo, m.url),
     })));
   } catch (error) {
     console.error('Listar mídias:', error.details || error);
@@ -251,7 +256,7 @@ app.post('/midias', autenticarToken, async (req, res) => {
       body: JSON.stringify({ titulo, tipo, url, autor_id: req.usuario.id }),
     });
     const item = data[0];
-    res.status(201).json({ ...item, autorId: req.usuario.id, criadoEm: item.criado_em });
+    res.status(201).json({ ...item, autorId: req.usuario.id, criadoEm: item.criado_em, proxy: proxy.pathFor(item.tipo, item.url) });
   } catch (error) {
     console.error('Criar mídia:', error.details || error);
     res.status(500).json({ mensagem: 'Erro ao adicionar item de mídia.' });

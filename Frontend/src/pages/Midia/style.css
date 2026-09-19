@@ -18,8 +18,11 @@
 .midia-player-hint { padding:10px 16px; background:#fff; color:var(--text-muted); font-size:.78rem; border-top:1px solid var(--border); }
 .midia-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:14px; margin-top:26px; }
 .midia-card { position:relative; border:1px solid var(--border); border-radius:16px; background:#fff; overflow:hidden; }
-.midia-card-main { width:100%; text-align:left; padding:20px 16px 28px; border:0; background:transparent; display:flex; flex-direction:column; gap:8px; }
+.midia-card-main { width:100%; text-align:left; padding:20px 16px 44px; border:0; background:transparent; display:flex; flex-direction:column; gap:8px; }
 .midia-card strong { font-size:1.02rem; }
+.midia-link { font-size: .68rem; color: var(--text-muted); word-break: break-all; font-family: ui-monospace, monospace; }
+.midia-copy { position: absolute; left: 10px; bottom: 10px; border: 0; background: var(--yellow-soft); color: #795700; border-radius: 9px; padding: 6px 10px; font-size: .72rem; font-weight: 800; }
+.midia-proxy-toggle { display: flex; align-items: center; gap: 6px; font-size: .8rem; font-weight: 700; }
 .midia-tag { align-self:flex-start; font-size:.7rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em; padding:4px 9px; border-radius:999px; background:var(--yellow-soft); color:#795700; }
 .midia-card.jogo .midia-tag { background:#e6f0ff; color:#1d4ed8; }
 .midia-delete { position:absolute; right:10px; bottom:10px; border:0; background:#fff0ed; color:#a72b20; border-radius:9px; padding:6px 10px; font-size:.72rem; font-weight:800; }

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { api } from '../../services/api';
+import { api, apiUrl } from '../../services/api';
 import './style.css';
 
 const emptyForm = { titulo: '', tipo: 'video', url: '' };
@@ -25,6 +25,15 @@ function embedSrc(item) {
   return item.url;
 }
 
+// Link codificado gerado pelo backend (/p/<token>)
+function proxyLink(item) {
+  return item.proxy ? `${apiUrl}${item.proxy}` : '';
+}
+
+function shortLink(link) {
+  return link.length > 48 ? `${link.slice(0, 34)}…${link.slice(-10)}` : link;
+}
+
 function Midia({ token, usuario }) {
   const [itens, setItens] = useState([]);
   const [form, setForm] = useState(emptyForm);
@@ -34,6 +43,8 @@ function Midia({ token, usuario }) {
   const [saving, setSaving] = useState(false);
   const [erro, setErro] = useState('');
   const [erroEmbed, setErroEmbed] = useState(false);
+  const [usarProxy, setUsarProxy] = useState(true);
+  const [copiado, setCopiado] = useState(null);
 
   const carregar = useCallback(async () => {
     setLoading(true); setErro('');
@@ -66,7 +77,8 @@ function Midia({ token, usuario }) {
   };
 
   const abrir = (item) => {
-    if (item.tipo === 'jogo') {
+    // Sem proxy, jogos continuam abrindo em nova aba (muitos bloqueiam iframe)
+    if (item.tipo === 'jogo' && !(usarProxy && item.proxy)) {
       window.open(item.url, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -74,11 +86,23 @@ function Midia({ token, usuario }) {
     setAtivo(item);
   };
 
-  const src = useMemo(() => (ativo ? embedSrc(ativo) : null), [ativo]);
+  const copiar = async (item) => {
+    try {
+      await navigator.clipboard.writeText(proxyLink(item));
+      setCopiado(item.id);
+      setTimeout(() => setCopiado(null), 1800);
+    } catch { setErro('Não foi possível copiar o link.'); }
+  };
+
+  const viaProxy = Boolean(ativo && usarProxy && ativo.proxy);
+  const src = useMemo(() => {
+    if (!ativo) return null;
+    return usarProxy && ativo.proxy ? proxyLink(ativo) : embedSrc(ativo);
+  }, [ativo, usarProxy]);
 
   return <section className="midia-page page-shell"><div className="container">
     <div className="midia-hero">
-      <div><span className="section-kicker">Área autenticada</span><h1 className="section-title">Jogos &amp; Vídeos</h1><p>Adicione links de jogos online e vídeos do YouTube para assistir direto por aqui.</p></div>
+      <div><span className="section-kicker">Área autenticada</span><h1 className="section-title">Jogos &amp; Vídeos</h1><p>Adicione links de jogos online e vídeos do YouTube. Cada link é salvo já codificado e pode ser aberto por aqui.</p></div>
       <button className="midia-new" onClick={() => setMostrarForm(v => !v)}>{mostrarForm ? 'Cancelar' : '+ Adicionar'}</button>
     </div>
 
@@ -98,12 +122,17 @@ function Midia({ token, usuario }) {
       <div className="midia-player-head">
         <strong>{ativo.titulo}</strong>
         <div className="midia-player-head-actions">
-          <a href={ativo.url} target="_blank" rel="noreferrer">Abrir em nova aba ↗</a>
+          {ativo.proxy && <label className="midia-proxy-toggle">
+            <input type="checkbox" checked={usarProxy} onChange={e => { setUsarProxy(e.target.checked); setErroEmbed(false); }} />
+            Link codificado
+          </label>}
+          <a href={viaProxy ? proxyLink(ativo) : ativo.url} target="_blank" rel="noreferrer">Abrir em nova aba ↗</a>
           <button onClick={() => setAtivo(null)}>Fechar</button>
         </div>
       </div>
       {!erroEmbed ? (
         <iframe
+          key={src}
           src={src}
           title={ativo.titulo}
           referrerPolicy="no-referrer"
@@ -114,10 +143,10 @@ function Midia({ token, usuario }) {
       ) : (
         <div className="midia-player-fallback">
           Este conteúdo não permite ser exibido dentro do site.{' '}
-          <a href={ativo.url} target="_blank" rel="noreferrer">Abrir em nova aba</a>.
+          <a href={viaProxy ? proxyLink(ativo) : ativo.url} target="_blank" rel="noreferrer">Abrir em nova aba</a>.
         </div>
       )}
-      <p className="midia-player-hint">Alguns jogos e vídeos bloqueiam a exibição dentro de outros sites. Se a tela acima mostrar um erro, use "Abrir em nova aba".</p>
+      <p className="midia-player-hint">Nem todo site funciona pelo link codificado (páginas muito dinâmicas, como o player do YouTube, podem falhar). Se a tela mostrar erro, desmarque "Link codificado" ou use "Abrir em nova aba".</p>
     </div>}
 
     <div className="midia-grid">
@@ -128,7 +157,9 @@ function Midia({ token, usuario }) {
             <button className="midia-card-main" onClick={() => abrir(item)}>
               <span className="midia-tag">{item.tipo === 'video' ? 'Vídeo' : 'Jogo ↗'}</span>
               <strong>{item.titulo}</strong>
+              {item.proxy && <code className="midia-link" title={proxyLink(item)}>{shortLink(proxyLink(item))}</code>}
             </button>
+            {item.proxy && <button className="midia-copy" onClick={() => copiar(item)}>{copiado === item.id ? 'Copiado!' : 'Copiar link'}</button>}
             {Number(item.autorId) === Number(usuario.id) && <button className="midia-delete" onClick={() => apagar(item.id)}>Excluir</button>}
           </article>
         ))}
