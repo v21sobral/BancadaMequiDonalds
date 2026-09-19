@@ -180,9 +180,9 @@ function rewriteHtml(html, pageUrl, secret) {
   }
   const rewrite = urlRewriter(secret, base);
 
-  let out = html
-    .replace(/<base\b[^>]*>/gi, '')
-    .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy["']?[^>]*>/gi, '')
+  // Atributos só são reescritos no HTML, nunca dentro do código de <script>
+  // (senão strings de JS como '<a href="' + url + '">' seriam corrompidas).
+  const rewriteMarkup = (markup) => markup
     .replace(/\s(?:integrity|nonce)\s*=\s*(["']).*?\1/gi, '')
     .replace(/\b(href|src|action|poster|formaction|data-src)\s*=\s*(["'])(.*?)\2/gi,
       (_, attr, q, val) => `${attr}=${q}${rewrite(val)}${q}`)
@@ -193,8 +193,21 @@ function rewriteHtml(html, pageUrl, secret) {
       });
       return `srcset=${q}${parts.join(', ')}${q}`;
     })
-    .replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => `<style${attrs}>${rewriteCss(css, rewrite)}</style>`)
     .replace(/\bstyle\s*=\s*(["'])(.*?)\1/gi, (_, q, css) => `style=${q}${rewriteCss(css, rewrite)}${q}`);
+
+  const scripts = [];
+  let out = html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (block) => {
+    const open = /^<script\b[^>]*>/i.exec(block)[0];
+    scripts.push(rewriteMarkup(open) + block.slice(open.length));
+    return `\uE000${scripts.length - 1}\uE000`;
+  });
+
+  out = rewriteMarkup(
+    out
+      .replace(/<base\b[^>]*>/gi, '')
+      .replace(/<meta\b[^>]*http-equiv\s*=\s*["']?content-security-policy["']?[^>]*>/gi, '')
+      .replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_, attrs, css) => `<style${attrs}>${rewriteCss(css, rewrite)}</style>`),
+  ).replace(/\uE000(\d+)\uE000/g, (_, i) => scripts[Number(i)]);
 
   const script = clientScript(pageUrl, sigFor(secret, pageUrl.origin));
   if (/<head[^>]*>/i.test(out)) out = out.replace(/<head[^>]*>/i, (m) => m + script);
@@ -255,6 +268,7 @@ function createProxy({ secret, allowedOrigins = [] }) {
       if (req.get('range')) headers.range = req.get('range');
 
       const upstream = await undiciFetch(target.href, { headers, redirect: 'manual', dispatcher });
+      if (upstream.status >= 400) console.warn('Proxy origem respondeu', upstream.status, target.href);
 
       if (REDIRECTS.has(upstream.status)) {
         const location = upstream.headers.get('location');
